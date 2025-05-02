@@ -8,8 +8,11 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <bitset>
 
 using namespace std;
+
+const uint32_t n = 10000;
 
 unordered_set<uint32_t> intersection(
     const unordered_set<uint32_t>& a,
@@ -36,6 +39,64 @@ string to_string(const unordered_set<T>& s) {
     }
     oss << "}";
     return oss.str();
+}
+
+vector<bitset<n>> _makeGraph(double p) {
+    vector<bitset<n>> G(n);
+    vector<uint32_t> connect(n);
+    for (uint32_t i = 0; i < n; ++i)
+        connect[i] = i;
+
+    random_device rd;
+    mt19937 rng(rd());
+    shuffle(connect.begin(), connect.end(), rng);
+
+    vector<uint32_t> connected;
+    connected.push_back(connect[0]);
+
+    for (uint32_t i = 1; i < n; ++i) {
+        uniform_int_distribution<uint32_t> dist(0, i - 1);
+        uint32_t rand_index = dist(rng);
+
+        uint32_t u = connect[i];
+        uint32_t v = connected[rand_index];
+
+        G[u][v] = 1;
+        G[v][u] = 1;
+
+        connected.push_back(u);
+    }
+
+    uint64_t edgeMax = static_cast<uint64_t>(p * (n * (n - 1) / 2));
+    uniform_int_distribution<int> dist(0, n - 1);
+
+    for (uint64_t i = 0; i < (edgeMax - n); ++i) {
+        int u = dist(rng);
+        int v = dist(rng);
+        if (u == v || G[u][v]) continue;
+
+        // Find common neighbors with a bitwise AND
+        bitset<n> common = G[u] & G[v];
+
+        // Check if any two neighbors in `common` are connected (4-clique check)
+        bool valid = true;
+        for (int a = 0; a < n && valid; ++a) {
+            if (!common[a]) continue;
+            for (int b = a + 1; b < n; ++b) {
+                if (common[b] && G[a][b]) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+
+        if (valid) {
+            G[u][v] = 1;
+            G[v][u] = 1;
+        }
+    }
+
+    return G;
 }
 
 vector<unordered_set<uint32_t>> makeGraph(uint32_t n, double p) {
@@ -103,16 +164,15 @@ vector<unordered_set<uint32_t>> makeGraph(uint32_t n, double p) {
 
 
 int main(int argc, char* argv[]) {
-    // Program should accept 2 parameters (n, p)
-    if (argc != 3) {
+    // Program should accept 1 parameters p
+    if (argc != 2) {
         cerr << "Wrong Parameter Count" << endl;
         return 1;
     }
 
-    uint32_t n = stoi(argv[1]);
-    double p = stod(argv[2]);
+    double p = stod(argv[1]);
 
-    vector<unordered_set<uint32_t>> G = makeGraph(n, p);
+    vector<bitset<n>> G = _makeGraph(p);
 
     return 0;
 }
